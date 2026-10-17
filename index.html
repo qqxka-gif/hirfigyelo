@@ -54,8 +54,9 @@ a{color:var(--ac)}footer{font-size:12px;color:var(--mu);padding:8px 0 24px}.f{di
 </div>
 <div class="grid g2">
  <section class="card"><h2>Országjelentések</h2><div class="tabs" id="rt"></div><div id="rp"></div></section>
- <section class="card"><h2>Napi videó</h2><canvas id="vd" width="640" height="360" role="img" aria-label="Pálcikaember-animáció a nap témájáról"></canvas>
-  <div class="f" style="margin-top:8px"><button id="vp">❚❚ Szünet</button><button id="vr">↺ Újra</button><span id="vt" class="m"></span></div></section>
+ <section class="card"><h2>Napi videó</h2><div id="vc"><canvas id="vd" width="640" height="360" role="img" aria-label="Pálcikaember-animáció a nap témájáról"></canvas>
+  <div class="f" style="margin-top:8px"><button id="vp">❚❚ Szünet</button><button id="vr">↺ Újra</button><span id="vt" class="m"></span></div></div>
+  <iframe id="vf" title="Napi magyarázó animáció" sandbox="allow-scripts" style="display:none;width:100%;aspect-ratio:1/1;min-height:470px;border:0;border-radius:10px"></iframe></section>
 </div>
 <section class="card" style="margin-top:12px"><h2>Legújabb cikkek</h2><div class="f"><select id="fc"></select><select id="fb"></select><select id="fs"></select></div><div id="ls"></div></section>
 <footer>Automatikus MI-elemzés, hibákat tartalmazhat. A hangulatpont becslés. A forrás-besorolás kötődést ír le (dátummal és forrással), nem minősítést. A kormányról szóló médiahang nem azonos a társadalmi támogatottsággal. Az adatok csak címekből és rövid leírásokból készülnek; minden cikk az eredeti oldalra mutat.</footer>
@@ -89,20 +90,20 @@ function demo(){
  const scopes={intl:-.1,intl_USA:-.2,intl_UK:-.1,intl_DE:-.15,intl_FR:-.05,dom:-.02,dom_fidesz_kozeli:-.4,dom_fuggetlen:-.08,dom_tisza_kozeli:.4},stats=[];
  Object.entries(scopes).forEach(([s,b],si)=>{for(let i=0;i<90;i++)stats.push({day:new Date(now-(89-i)*24*H).toISOString().slice(0,10),scope:s,avg:cl(b+.12*Math.sin(i/7+si)+(R()-.5)*.12),n:20})});
  const polls=[];for(let w=0;w<12;w++){const day=new Date(now-(11-w)*7*24*H).toISOString().slice(0,10);['Intézet A','Intézet B','Intézet C'].forEach(inst=>{polls.push({day,institute:inst,party:'Tisza',pct:50+Math.sin(w/3)*2+(R()-.5)*4});polls.push({day,institute:inst,party:'Fidesz',pct:37+(R()-.5)*4})})}
- const rep=(k)=>({osszkep:`DEMÓ szöveg: ${CO[k]} sajtójának összképe itt jelenne meg 3–5 mondatban.`,narrativak:[{cim:'Első narratíva (demó)',leiras:'A napi jelentés ide kerül, a Claude elemzése alapján.',forrasok:['Telex','Index']},{cim:'Második narratíva (demó)',leiras:'Rövid leírás a sajtó fő témájáról.',forrasok:['BBC News']}],kormany_kep:'DEMÓ: hogyan szólnak a hazai források a kormányról, kötődés szerint.',magyarorszag_kepe:'DEMÓ: Magyarország képe ebben az országban.'});
+ const rep=(k)=>({osszkep:`DEMÓ szöveg: ${CO[k]} sajtójának összképe itt jelenne meg 3–5 mondatban.`,narrativak:[{cim:'Első narratíva (demó)',leiras:'A napi jelentés ide kerül, a Claude elemzése alapján.',forrasok:[{nev:'Telex',url:'https://telex.hu'},{nev:'Index',url:'https://index.hu'}]},{cim:'Második narratíva (demó)',leiras:'Rövid leírás a sajtó fő témájáról.',forrasok:[{nev:'BBC News',url:'https://www.bbc.com/news'}]}],kormany_kep:'DEMÓ: hogyan szólnak a hazai források a kormányról, kötődés szerint.',magyarorszag_kepe:'DEMÓ: Magyarország képe ebben az országban.'});
  const pack={day:new Date().toISOString().slice(0,10),content:{orszagjelentesek:Object.fromEntries(Object.keys(CO).map(k=>[k,rep(k)])),
   nap_cikke:{tema:'Demó téma: energia',magyarazat:'A rendszer a legtöbb forrás által tárgyalt témát emeli ki, és bemutatja, hol tér el a hangnem.',tenyek:['A téma 12 forrásban szerepelt.','A kormányhoz közel álló és független lapok hangneme 0,6 ponttal tér el.','A külföldi sajtó hangja semlegesebb, mint a hazaié.'],forrasok:[]},video:null}};
  return{articles:arts,src,govs:[{name:'Magyar-kormány (demó)',party:'Tisza',valid_from:'2026-05-10',valid_to:null}],polls,stats,pack};
 }
 /* ---------- éles adatok (Supabase) ---------- */
-async function q(t,qs){const r=await fetch(`${CFG.URL}/rest/v1/${t}?${qs}`,{headers:{apikey:CFG.KEY}});if(!r.ok)throw new Error(t+' '+r.status);return r.json()}
+async function q(t,qs,pages){let out=[];for(let p=0;p<(pages||1);p++){const r=await fetch(`${CFG.URL}/rest/v1/${t}?${qs}&limit=1000&offset=${p*1000}`,{headers:{apikey:CFG.KEY}});if(!r.ok)throw new Error(t+' '+r.status);const j=await r.json();out=out.concat(j);if(j.length<1000)break}return out}
 async function live(){
  const since=new Date(now-7*24*H).toISOString(),ma=new Date().toISOString().slice(0,10);
  const[arts,srcs,rels,govs,polls,stats,pack]=await Promise.all([
-  q('articles',`select=id,source,country,title,title_hu,url,fetched_at,sentiment,hu_sentiment,gov_stance,about_hungary,about_gov,topics&analyzed=eq.true&fetched_at=gte.${since}&order=fetched_at.desc&limit=3000`),
+  q('articles',`select=id,source,country,title,title_hu,url,fetched_at,sentiment,hu_sentiment,gov_stance,about_hungary,about_gov,topics&analyzed=eq.true&fetched_at=gte.${since}&order=fetched_at.desc`,5),
   q('sources','select=name,country,leaning'),q('source_relations','select=source,relation,valid_from,valid_to&order=valid_from.asc'),
-  q('governments','select=name,party,valid_from,valid_to'),q('polls','select=day,institute,party,pct&order=day.desc&limit=400'),
-  q('daily_stats','select=day,scope,avg,n&order=day.desc&limit=2500'),q('daily_pack','select=day,content&order=day.desc&limit=1')]);
+  q('governments','select=name,party,valid_from,valid_to'),q('polls','select=day,institute,party,pct&order=day.desc'),
+  q('daily_stats','select=day,scope,avg,n&order=day.desc',3),q('daily_pack','select=day,content&order=day.desc&limit=1')]);
  const src={};srcs.forEach(s=>src[s.name]={country:s.country,leaning:s.leaning,relation:null});
  rels.forEach(r=>{if(src[r.source]&&r.valid_from<=ma&&(!r.valid_to||r.valid_to>=ma))src[r.source].relation=r.relation});
  return{articles:arts,src,govs,polls,stats,pack:pack[0]||null};
@@ -149,7 +150,7 @@ let rc='HU';const P=()=>D.pack&&D.pack.content;
 function reports(){const box=$('#rp'),O=P()&&P().orszagjelentesek;box.textContent='';
  if(!O||!O[rc]){box.append(h('p','m','Még nincs jóváhagyott napi jelentés ehhez az országhoz.'));return}
  const r=O[rc];box.append(h('p','m','Jelentés napja: '+D.pack.day+' · MI-támogatott elemzés, átnézve'),h('p','',r.osszkep||''));
- arr(r.narrativak).slice(0,5).forEach(n=>{const x=h('div','row'),d=h('div');d.append(h('b','',n.cim||''),h('div','',n.leiras||''),h('div','m','Források: '+arr(n.forrasok).join(', ')));x.append(d);box.append(x)});
+ arr(r.narrativak).slice(0,5).forEach(n=>{const x=h('div','row'),d=h('div'),s=h('div','m','Források: ');arr(n.forrasok).slice(0,6).forEach((f,i)=>{if(i)s.append(', ');const nm=typeof f==='string'?f:(f&&f.nev)||'forrás';if(f&&f.url){const a=h('a','',nm);a.href=safe(f.url);a.target='_blank';a.rel='noopener noreferrer';s.append(a)}else s.append(nm)});d.append(h('b','',n.cim||''),h('div','',n.leiras||''),s);x.append(d);box.append(x)});
  const k=r.kormany_kep||r.magyarorszag_kepe;if(k)box.append(h('h3','',rc==='HU'?'A kormány képe a hazai sajtóban':'Magyarország képe'),h('p','',k))}
 function nap(){const box=$('#sd'),N=P()&&P().nap_cikke;box.textContent='';if(!N){box.append(h('p','m','Még nincs jóváhagyott napi elemzés.'));return}
  box.append(h('h3','',N.tema||''),h('p','',N.magyarazat||''));const ul=h('ul');arr(N.tenyek).slice(0,5).forEach(t=>ul.append(h('li','',t)));box.append(ul);
@@ -184,6 +185,7 @@ async function start(){
  if(DEMO)$('#demo').style.display='inline-block';
  try{D=DEMO?demo():await live()}catch(e){const b=$('#err');b.style.display='block';b.textContent='Az adatok betöltése nem sikerült: '+e.message+'. Ellenőrizd a Supabase URL-t és a publishable kulcsot.';D={articles:[],src:{},govs:[],polls:[],stats:[],pack:null}}
  hero();tickInit();tstart();
+ const vh=P()&&P().video_html;if(typeof vh==='string'&&vh.length<400000){$('#vf').srcdoc=vh;$('#vf').style.display='block';$('#vc').style.display='none';vp=true}
  tabs('#mt',[['hu','Hazai (kötődés)'],['ext','Külföldi (irányzat)']],()=>mm,k=>{mm=k;donut()});
  tabs('#tt',[['intl','Nemzetközi'],['dom','Hazai médiahang']],()=>tg,k=>{tg=k;trend()});tabs('#tr',[[7,'7 nap'],[30,'30 nap'],[90,'90 nap']],()=>tr,k=>{tr=k;trend()});
  charts();tabs('#rt',Object.entries(CO),()=>rc,k=>{rc=k;reports()});reports();nap();
