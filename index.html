@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="hu"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Hírfigyelő – két barométer</title>
+<title>Hírfigyelő – országimázs barométer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f4f6f9;--card:#fff;--tx:#18202a;--mu:#667180;--bd:#e1e5ea;--ac:#2456d6;--neg:#c23b3b;--neu:#7d8691;--pos:#1f8a4c;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -18,7 +18,7 @@ button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 @media(min-width:800px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 2fr}}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;min-width:0}
 .gauge{position:relative;width:230px;max-width:100%;margin:0 auto}.gauge svg{width:100%;display:block;color:var(--tx)}
-.big{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:34px;font-weight:700;line-height:1}
+.big{text-align:center;font-size:40px;font-weight:700;line-height:1;margin-top:8px}.big::after{content:" / 100";font-size:14px;font-weight:500;color:var(--mu)}
 .kpi{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.kpi div{min-width:92px;padding:6px 10px;border:1px solid var(--bd);border-radius:10px}
 .kpi b{display:block;font-size:19px}.kpi span{font-size:11px;color:var(--mu)}
 .note{font-size:12px;color:var(--mu);margin:8px 0 0}.m{font-size:12px;color:var(--mu)}
@@ -33,7 +33,7 @@ canvas#vd{width:100%;height:auto;border-radius:10px;background:#f2efe6;display:b
 a{color:var(--ac)}footer{font-size:12px;color:var(--mu);padding:8px 0 24px}.f{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 #err{display:none;background:var(--neg);color:#fff;padding:8px 12px;border-radius:10px;margin-top:12px}
 </style></head><body>
-<div class="top"><div><h1>Hírfigyelő <small style="font-weight:400;color:var(--mu);font-size:13px">két barométer</small></h1><span class="demo" id="demo">DEMÓ ADATOK – nem valós hírek és kutatások</span></div><button id="th" aria-label="Világos/sötét téma">◐ Téma</button></div>
+<div class="top"><div><h1>Hírfigyelő <small style="font-weight:400;color:var(--mu);font-size:13px">országimázs barométer</small></h1><span class="demo" id="demo">DEMÓ ADATOK – nem valós hírek és kutatások</span></div><button id="th" aria-label="Világos/sötét téma">◐ Téma</button></div>
 <main>
 <div id="err"></div>
 <div class="grid g2" style="margin-top:0">
@@ -154,7 +154,13 @@ function reports(){const box=$('#rp'),O=P()&&P().orszagjelentesek;box.textConten
  const k=r.kormany_kep||r.magyarorszag_kepe;if(k)box.append(h('h3','',rc==='HU'?'A kormány képe a hazai sajtóban':'Magyarország képe'),h('p','',k))}
 function nap(){const box=$('#sd'),N=P()&&P().nap_cikke;box.textContent='';if(!N){box.append(h('p','m','Még nincs jóváhagyott napi elemzés.'));return}
  box.append(h('h3','',N.tema||''),h('p','',N.magyarazat||''));const ul=h('ul');arr(N.tenyek).slice(0,5).forEach(t=>ul.append(h('li','',t)));box.append(ul);
- arr(N.forrasok).forEach(f=>{const a=h('a','',f.nev||f.url);a.href=safe(f.url);a.target='_blank';a.rel='noopener noreferrer';const p=h('div','m');p.append(a);box.append(p)})}
+ arr(N.forrasok).forEach(f=>{const a=h('a','',f.nev||f.url);a.href=safe(f.url);a.target='_blank';a.rel='noopener noreferrer';const p=h('div','m');p.append(a);box.append(p)});
+ const Hh=N.hatter;if(Hh&&(arr(Hh.mult).length||arr(Hh.lehetseges_kovetkezmenyek).length||arr(Hh.nyitott_kerdesek).length)){
+  box.append(h('h3','','Háttér: mi történt korábban?'));
+  arr(Hh.mult).slice(0,8).forEach(m=>{const r=h('div','row'),d=h('div');d.append(h('b','',m.datum||''),h('div','',m.tenyek||''));const f=m.forras;if(f&&f.url){const a=h('a','',f.nev||'forrás');a.href=safe(f.url);a.target='_blank';a.rel='noopener noreferrer';const p=h('div','m');p.append('Külső forrás: ',a);d.append(p)}r.append(d);box.append(r)});
+  if(arr(Hh.lehetseges_kovetkezmenyek).length){box.append(h('h3','','Lehetséges következmények (értékelés, nem tény)'));arr(Hh.lehetseges_kovetkezmenyek).slice(0,5).forEach(k=>{const r=h('div','row'),d=h('div');d.append(h('b','',k.cim||''),h('div','',k.leiras||''),h('div','m','Bizonytalanság: '+(k.bizonytalansag||'közepes')));r.append(d);box.append(r)})}
+  if(arr(Hh.nyitott_kerdesek).length){box.append(h('h3','','Nyitott kérdések'));const u=h('ul');arr(Hh.nyitott_kerdesek).slice(0,5).forEach(q=>u.append(h('li','',q)));box.append(u)}
+  box.append(h('p','m','A háttéranyagot MI gyűjtötte webes keresésből; a külső linkeket nem ellenőriztük automatikusan.'))}}
 /* ---------- cikklista ---------- */
 const tag=a=>a.country==='HU'?(REL[S(a).relation]||REL.ismeretlen)[0]:(LG[S(a).leaning]?'külföldi: '+LG[S(a).leaning]:'külföldi');
 function opts(id,first,arr2){const e=$(id);e.textContent='';e.append(new Option(first,''));arr2.forEach(([v,l])=>e.append(new Option(l,v)));e.onchange=lst}
