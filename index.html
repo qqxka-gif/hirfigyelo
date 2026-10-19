@@ -60,7 +60,7 @@ details summary{cursor:pointer;color:var(--ac);font-size:13px;margin-top:4px}det
  <section class="card"><h2>Napi trend (0–100 index)</h2><div class="tabs" id="tt"></div><div class="tabs" id="tr"></div><div class="cv"><canvas id="c2"></canvas></div></section>
 </div>
 <div class="grid g2">
- <section class="card"><h2>Közvélemény-kutatások</h2><div class="cv"><canvas id="c3"></canvas></div><p class="note" id="pn"></p></section>
+ <section class="card"><h2>Közvélemény-kutatások</h2><div class="tabs" id="pt" role="tablist"></div><div id="pg"><div class="cv"><canvas id="c3"></canvas></div><p class="note" id="pn"></p></div><div id="pl" style="display:none"></div></section>
  <section class="card"><h2>Napi videó</h2><div id="vc"><canvas id="vd" width="640" height="360" role="img" aria-label="Pálcikaember-animáció a nap témájáról"></canvas>
   <div class="f" style="margin-top:8px"><button id="vp">❚❚ Szünet</button><button id="vr">↺ Újra</button><span id="vt" class="m"></span></div></div>
   <iframe id="vf" title="Napi magyarázó animáció" sandbox="allow-scripts" style="display:none;width:100%;aspect-ratio:1/1;min-height:470px;border:0;border-radius:10px"></iframe></section>
@@ -98,7 +98,7 @@ function demo(){
     hu_sentiment:hu?cl((c==='HU'?.1:(LB[l]||0))+(R()-.5)*.6):null,about_gov:gv,gov_stance:gv?cl((SB[r]||0)+(R()-.5)*.6):null,topics:[top]})}});
  const scopes={intl:-.1,intl_USA:-.2,intl_UK:-.1,intl_DE:-.15,intl_FR:-.05,dom:-.02,dom_fidesz_kozeli:-.4,dom_fuggetlen:-.08,dom_tisza_kozeli:.4},stats=[];
  Object.entries(scopes).forEach(([s,b],si)=>{for(let i=0;i<90;i++)stats.push({day:new Date(now-(89-i)*24*H).toISOString().slice(0,10),scope:s,avg:cl(b+.12*Math.sin(i/7+si)+(R()-.5)*.12),n:20})});
- const polls=[];for(let w=0;w<12;w++){const day=new Date(now-(11-w)*7*24*H).toISOString().slice(0,10);['Intézet A','Intézet B','Intézet C'].forEach(inst=>{polls.push({day,institute:inst,party:'Tisza',pct:50+Math.sin(w/3)*2+(R()-.5)*4});polls.push({day,institute:inst,party:'Fidesz',pct:37+(R()-.5)*4})})}
+ const polls=[];for(let w=0;w<12;w++){const day=new Date(now-(11-w)*7*24*H).toISOString().slice(0,10);['Intézet A','Intézet B','Intézet C'].forEach(inst=>{polls.push({day,institute:inst,source_url:'https://telex.hu',party:'Tisza',pct:50+Math.sin(w/3)*2+(R()-.5)*4});polls.push({day,institute:inst,source_url:'https://telex.hu',party:'Fidesz',pct:37+(R()-.5)*4})})}
  const rep=(k)=>({osszkep:`DEMÓ szöveg: ${CO[k]} sajtójának összképe itt jelenne meg 3–5 mondatban.`,narrativak:[{cim:'Első narratíva (demó)',leiras:'A napi jelentés ide kerül, a Claude elemzése alapján.',forrasok:[{nev:'Telex',url:'https://telex.hu'},{nev:'Index',url:'https://index.hu'}]},{cim:'Második narratíva (demó)',leiras:'Rövid leírás a sajtó fő témájáról.',forrasok:[{nev:'BBC News',url:'https://www.bbc.com/news'}]}],kormany_kep:'DEMÓ: hogyan szólnak a hazai források a kormányról, kötődés szerint.',magyarorszag_kepe:'DEMÓ: Magyarország képe ebben az országban.'});
  const pack={day:new Date().toISOString().slice(0,10),content:{orszagjelentesek:Object.fromEntries(Object.keys(CO).map(k=>[k,rep(k)])),
   nap_cikke:{tema:'Demó téma: energia',magyarazat:'A rendszer a legtöbb forrás által tárgyalt témát emeli ki, és bemutatja, hol tér el a hangnem.',tenyek:['A téma 12 forrásban szerepelt.','A kormányhoz közel álló és független lapok hangneme 0,6 ponttal tér el.','A külföldi sajtó hangja semlegesebb, mint a hazaié.'],
@@ -116,7 +116,7 @@ async function live(){
  const[arts,srcs,rels,govs,polls,stats,pack]=await Promise.all([
   q('articles',`select=id,source,country,title,title_hu,url,fetched_at,sentiment,hu_sentiment,gov_stance,about_hungary,about_gov,topics&analyzed=eq.true&fetched_at=gte.${since}&order=fetched_at.desc`,5),
   q('sources','select=name,country,leaning'),q('source_relations','select=source,relation,valid_from,valid_to&order=valid_from.asc'),
-  q('governments','select=name,party,valid_from,valid_to'),q('polls','select=day,institute,party,pct&order=day.desc'),
+  q('governments','select=name,party,valid_from,valid_to'),q('polls','select=day,institute,party,pct,sample,source_url&order=day.desc'),
   q('daily_stats','select=day,scope,avg,n&order=day.desc',3),q('daily_pack','select=day,content&order=day.desc&limit=1')]);
  const src={};srcs.forEach(s=>src[s.name]={country:s.country,leaning:s.leaning,relation:null});
  rels.forEach(r=>{if(src[r.source]&&r.valid_from<=ma&&(!r.valid_to||r.valid_to>=ma))src[r.source].relation=r.relation});
@@ -221,6 +221,26 @@ function topHirek(){
   d.append(m,dt);r.append(h('span','rk',String(i+1)),d);box.append(r)});
  box.append(h('p','note','A tételek az azonos eseményről szóló cikkeket vonják össze. A címet MI írta, a számokat a program számolta. A hangnem a cikkek átlaga, nem a társadalom véleménye.'));
 }
+/* ---------- közvélemény-kutatások: grafikon / lista ---------- */
+let pv='chart';
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return 'forrás'}};
+function pollView(){
+ tabs('#pt',[['chart','Grafikon'],['list','Felmérések listája']],()=>pv,k=>{pv=k;pollView()});
+ $('#pg').style.display=pv==='chart'?'':'none';$('#pl').style.display=pv==='list'?'':'none';
+ if(pv==='chart'){if(c3&&typeof c3.resize==='function')c3.resize()}else pollList();
+}
+function pollList(){
+ const box=$('#pl');box.textContent='';const g={};
+ D.polls.forEach(p=>{const k=p.day+'|'+p.institute,x=g[k]||(g[k]={day:p.day,inst:p.institute,urls:new Set()});if(p.source_url)x.urls.add(p.source_url)});
+ const L=Object.values(g).sort((a,b)=>a.day<b.day?1:a.day>b.day?-1:a.inst.localeCompare(b.inst));
+ if(!L.length){box.append(h('p','m','Még nincs felvitt kutatás.'));return}
+ L.forEach(x=>{const r=h('div','row'),dt=h('span','chip',x.day),d=h('div'),m=h('div','m');dt.style.minWidth='92px';d.style.flex='1';
+  d.append(h('b','',x.inst));
+  const us=[...x.urls].slice(0,3);
+  if(us.length){m.append('Forrás: ');us.forEach((u,i)=>{if(i)m.append(', ');const a=h('a','',host(u));a.href=safe(u);a.target='_blank';a.rel='noopener noreferrer';m.append(a)})}else m.append('nincs megadott link');
+  d.append(m);r.append(dt,d);box.append(r)});
+ box.append(h('p','note','Felmérésenként egy sor (a közzététel napja szerint, a legújabb elöl). A linkek külső oldalakra mutatnak, ezeket nem ellenőrizzük automatikusan.'));
+}
 /* ---------- cikklista ---------- */
 const tag=a=>a.country==='HU'?(REL[S(a).relation]||REL.ismeretlen)[0]:(LG[S(a).leaning]?'külföldi: '+LG[S(a).leaning]:'külföldi');
 function opts(id,first,arr2){const e=$(id);e.textContent='';e.append(new Option(first,''));arr2.forEach(([v,l])=>e.append(new Option(l,v)));e.onchange=lst}
@@ -261,7 +281,7 @@ async function start(){
  const vh=P()&&P().video_html;if(typeof vh==='string'&&vh.length<400000){$('#vf').addEventListener('load',()=>{try{$('#vf').contentWindow.postMessage(themeMsg(),'*')}catch(e){}});$('#vf').srcdoc=vh;$('#vf').style.display='block';$('#vc').style.display='none';vp=true}
  tabs('#mt',[['hu','Hazai (kötődés)'],['ext','Külföldi (irányzat)']],()=>mm,k=>{mm=k;donut()});
  tabs('#tt',[['intl','Nemzetközi'],['dom','Hazai médiahang']],()=>tg,k=>{tg=k;trend()});tabs('#tr',[[7,'7 nap'],[30,'30 nap'],[90,'90 nap']],()=>tr,k=>{tr=k;trend()});
- charts();tabs('#rt',Object.entries(CO),()=>rc,k=>{rc=k;reports()});reports();nap();topHirek();
+ charts();tabs('#rt',Object.entries(CO),()=>rc,k=>{rc=k;reports()});reports();nap();topHirek();pollView();
  const tags=[...new Set(D.articles.map(tag))].sort();
  opts('#fc','Minden ország',Object.entries(CO));opts('#fb','Minden kötődés/irányzat',tags.map(t=>[t,t]));opts('#fs','Minden hangulat',[['kritikus','kritikus'],['semleges','semleges'],['pozitív','pozitív']]);lst();
  requestAnimationFrame(t=>{last=t;loop(t)});
